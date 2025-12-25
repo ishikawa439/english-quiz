@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>英単語四択クイズ</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+    }
+    textarea {
+      width: 100%;
+      height: 120px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px;
+    }
+    .choices button {
+      display: block;
+      width: 100%;
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+
+<h2>英単語 四択クイズ</h2>
+
+<p>英単語を改行で入力してください：</p>
+<textarea id="wordInput" placeholder="apple
+book
+run"></textarea>
+<br>
+<button onclick="registerWords()">単語を登録</button>
+
+<hr>
+
+<div id="quizArea" style="display:none;">
+  <h3 id="question"></h3>
+  <div class="choices" id="choices"></div>
+  <p id="result"></p>
+  <button onclick="makeQuiz()">次の問題</button>
+</div>
+
+<script>
+let wordList = [];
+let translations = {};
+let correctAnswer = "";
+
+async function translate(word) {
+  const res = await fetch(
+    `https://api.mymemory.translated.net/get?q=${word}&langpair=en|ja`
+  );
+  const data = await res.json();
+  return data.responseData.translatedText;
+}
+
+async function registerWords() {
+  const input = document.getElementById("wordInput").value;
+  wordList = input.split("\n").map(w => w.trim()).filter(w => w);
+
+  if (wordList.length < 4) {
+    alert("単語は4つ以上入力してください");
+    return;
+  }
+
+  translations = {};
+  for (let word of wordList) {
+    translations[word] = await translate(word);
+  }
+
+  document.getElementById("quizArea").style.display = "block";
+  makeQuiz();
+}
+
+function shuffle(array) {
+  return array.sort(() => Math.random() - 0.5);
+}
+
+function makeQuiz() {
+  document.getElementById("result").textContent = "";
+
+  const word = wordList[Math.floor(Math.random() * wordList.length)];
+  correctAnswer = translations[word];
+
+  const wrongChoices = shuffle(
+    Object.values(translations).filter(t => t !== correctAnswer)
+  ).slice(0, 3);
+
+  const choices = shuffle([correctAnswer, ...wrongChoices]);
+
+  document.getElementById("question").textContent = `「${word}」の意味は？`;
+
+  const choicesDiv = document.getElementById("choices");
+  choicesDiv.innerHTML = "";
+
+  choices.forEach(choice => {
+    const btn = document.createElement("button");
+    btn.textContent = choice;
+    btn.onclick = () => checkAnswer(choice);
+    choicesDiv.appendChild(btn);
+  });
+}
+
+function checkAnswer(answer) {
+  const result = document.getElementById("result");
+  if (answer === correctAnswer) {
+    result.textContent = "⭕ 正解！";
+  } else {
+    result.textContent = `❌ 不正解… 正解は「${correctAnswer}」`;
+  }
+}
+</script>
+
+</body>
+</html>

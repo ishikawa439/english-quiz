@@ -54,6 +54,9 @@ textarea { width: 100%; height: 120px; }
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
+  alert("JSが実行されています");
+});
+document.addEventListener("DOMContentLoaded", () => {
 
 const $ = id => document.getElementById(id);
 let data = JSON.parse(localStorage.getItem("wordData")) || {};

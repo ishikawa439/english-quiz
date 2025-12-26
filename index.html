@@ -8,9 +8,7 @@ body { font-family: sans-serif; max-width: 900px; margin: auto; }
 section { border: 1px solid #ccc; padding: 10px; margin-bottom: 20px; }
 textarea { width: 100%; height: 120px; }
 .choice button { display: block; width: 100%; margin: 6px 0; padding: 10px; font-size: 16px; }
-
-#quizScreen { display: none; }
-button { padding: 8px 12px; font-size: 14px; }
+#quizScreen { display:none; }
 </style>
 </head>
 <body>
@@ -47,7 +45,6 @@ button { padding: 8px 12px; font-size: 14px; }
 
 </div>
 
-<!-- ===== クイズ画面 ===== -->
 <div id="quizScreen">
 <button id="backHomeBtn">← HOMEに戻る</button>
 <h2 id="question"></h2>
@@ -59,14 +56,10 @@ button { padding: 8px 12px; font-size: 14px; }
 document.addEventListener("DOMContentLoaded", () => {
 
 const $ = id => document.getElementById(id);
-
-const homeScreen = $("homeScreen");
-const quizScreen = $("quizScreen");
-
 let data = JSON.parse(localStorage.getItem("wordData")) || {};
 const save = () => localStorage.setItem("wordData", JSON.stringify(data));
 
-async function translate(word) {
+async function translate(word){
   const r = await fetch(
     "https://api.mymemory.translated.net/get?q=" +
     encodeURIComponent(word) + "&langpair=en|ja"
@@ -75,11 +68,12 @@ async function translate(word) {
   return j.responseData.translatedText || "（翻訳失敗）";
 }
 
-function updateUI() {
-  $("boxSelect").innerHTML = "";
-  $("boxChecks").innerHTML = "";
-  for (const b in data) {
-    $("boxSelect").add(new Option(b, b));
+/* ===== UI更新 ===== */
+function updateUI(){
+  $("boxSelect").innerHTML="";
+  $("boxChecks").innerHTML="";
+  for(const b in data){
+    $("boxSelect").add(new Option(b,b));
     $("boxChecks").innerHTML +=
       `<label><input type="checkbox" value="${b}">${b}</label><br>`;
   }
@@ -87,92 +81,40 @@ function updateUI() {
 updateUI();
 
 /* ===== ボックス ===== */
-$("addBoxBtn").onclick = () => {
-  const name = $("boxNameInput").value.trim();
-  if (!name || data[name]) return;
-  data[name] = {};
-  save();
-  updateUI();
-  $("boxNameInput").value = "";
+$("addBoxBtn").onclick=()=>{
+  const n=$("boxNameInput").value.trim();
+  if(!n||data[n])return;
+  data[n]={};
+  save(); updateUI();
+  $("boxNameInput").value="";
 };
 
 /* ===== 単語登録 ===== */
-$("addWordBtn").onclick = async () => {
-  const box = $("boxSelect").value;
-  if (!box) return;
-  const words = $("wordInput").value.split("\n").map(w=>w.trim()).filter(Boolean);
-  if (!words.length) return;
-
-  $("status").textContent = "翻訳中…";
-  for (const w of words) {
-    if (data[box][w]) continue;
-    data[box][w] = { meaning: await translate(w), history: [] };
+$("addWordBtn").onclick=async()=>{
+  const box=$("boxSelect").value;
+  const words=$("wordInput").value.split("\n").map(w=>w.trim()).filter(Boolean);
+  if(!box||!words.length)return;
+  $("status").textContent="翻訳中…";
+  for(const w of words){
+    if(data[box][w])continue;
+    data[box][w]={meaning:await translate(w),history:[]};
     save();
   }
-  $("status").textContent = "登録完了";
-  $("wordInput").value = "";
+  $("status").textContent="登録完了";
+  $("wordInput").value="";
 };
 
 /* ===== 単語一覧 ===== */
-$("toggleListBtn").onclick = () => {
-  const list = $("wordList");
-  if (list.style.display === "none") {
-    list.style.display = "block";
-    $("toggleListBtn").textContent = "閉じる";
-    renderList();
-  } else {
-    list.style.display = "none";
-    $("toggleListBtn").textContent = "一覧表示";
-  }
+$("toggleListBtn").onclick=()=>{
+  const l=$("wordList");
+  l.style.display = l.style.display==="none"?"block":"none";
+  $("toggleListBtn").textContent = l.style.display==="none"?"一覧表示":"閉じる";
+  if(l.style.display==="block") renderList();
 };
 
-function renderList() {
-  const div = $("wordList");
-  div.innerHTML = "";
-  for (const b in data) {
-    div.innerHTML += `<h3>${b}</h3>`;
-    for (const w in data[b]) {
-      const h = data[b][w].history.slice(-5).map(x=>x?"⭕":"❌").join("");
-      div.innerHTML += `
-        ${w} :
-        <input id="m_${b}_${w}" value="${data[b][w].meaning}">
-        <button onclick="saveMeaning('${b}','${w}')">保存</button>
-        ${h}<br>`;
-    }
-  }
-}
-
-window.saveMeaning = (b,w) => {
-  data[b][w].meaning = document.getElementById(`m_${b}_${w}`).value;
-  save();
-  alert("保存しました");
-};
-
-/* ===== クイズ ===== */
-let quiz=[], wrong=[], idx=0, correct="";
-
-$("startQuizBtn").onclick = () => {
-  let pool=[];
-  document.querySelectorAll("#boxChecks input:checked")
-    .forEach(c=>{
-      for (const w in data[c.value])
-        pool.push({box:c.value, word:w});
-    });
-  if (pool.length < 10) {
-    alert("10語以上選択してください");
-    return;
-  }
-  quiz = pool.sort(()=>Math.random()-0.5).slice(0,10);
-  wrong=[]; idx=0;
-  homeScreen.style.display="none";
-  quizScreen.style.display="block";
-  nextQ();
-};
-
-$("backHomeBtn").onclick = () => {
-  quizScreen.style.display="none";
-  homeScreen.style.display="block";
-};
-
-function nextQ(){
-  if(idx>=qu
+function renderList(){
+  const div=$("wordList");
+  div.innerHTML="";
+  for(const b in data){
+    div.innerHTML+=`<h3>${b}</h3>`;
+    for(const w in data[b])

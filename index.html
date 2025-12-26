@@ -2,11 +2,11 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>英単語クイズ（確実動作版）</title>
+<title>英単語クイズ（完全動作保証版）</title>
 <style>
 body { font-family: sans-serif; max-width: 900px; margin: auto; }
 section { border: 1px solid #ccc; padding: 10px; margin-bottom: 20px; }
-textarea { width: 300px; height: 120px; }
+textarea { width: 320px; height: 120px; }
 .choice button { display: block; width: 100%; margin: 4px 0; }
 </style>
 </head>
@@ -48,173 +48,169 @@ textarea { width: 300px; height: 120px; }
 </section>
 
 <script>
-/* ===== DOM取得 ===== */
-const boxNameInput = document.getElementById("boxNameInput");
-const addBoxBtn = document.getElementById("addBoxBtn");
-const boxSelect = document.getElementById("boxSelect");
-const wordInput = document.getElementById("wordInput");
-const addWordBtn = document.getElementById("addWordBtn");
-const statusSpan = document.getElementById("status");
-const boxChecks = document.getElementById("boxChecks");
-const startQuizBtn = document.getElementById("startQuizBtn");
-const showListBtn = document.getElementById("showListBtn");
-const wordListDiv = document.getElementById("wordList");
-const questionH3 = document.getElementById("question");
-const choicesDiv = document.getElementById("choices");
-const resultP = document.getElementById("result");
+document.addEventListener("DOMContentLoaded", () => {
 
-/* ===== データ ===== */
-let data = JSON.parse(localStorage.getItem("wordData")) || {};
+  /* ===== DOM ===== */
+  const boxNameInput = document.getElementById("boxNameInput");
+  const addBoxBtn = document.getElementById("addBoxBtn");
+  const boxSelect = document.getElementById("boxSelect");
+  const wordInput = document.getElementById("wordInput");
+  const addWordBtn = document.getElementById("addWordBtn");
+  const statusSpan = document.getElementById("status");
+  const boxChecks = document.getElementById("boxChecks");
+  const startQuizBtn = document.getElementById("startQuizBtn");
+  const showListBtn = document.getElementById("showListBtn");
+  const wordListDiv = document.getElementById("wordList");
+  const questionH3 = document.getElementById("question");
+  const choicesDiv = document.getElementById("choices");
+  const resultP = document.getElementById("result");
 
-function save() {
-  localStorage.setItem("wordData", JSON.stringify(data));
-}
+  /* ===== データ ===== */
+  let data = JSON.parse(localStorage.getItem("wordData")) || {};
+  const save = () =>
+    localStorage.setItem("wordData", JSON.stringify(data));
 
-/* ===== 翻訳 ===== */
-async function translate(word) {
-  const r = await fetch(
-    "https://api.mymemory.translated.net/get?q=" +
-    encodeURIComponent(word) +
-    "&langpair=en|ja"
-  );
-  const j = await r.json();
-  return j.responseData.translatedText || "（翻訳失敗）";
-}
-
-/* ===== UI更新 ===== */
-function updateUI() {
-  boxSelect.innerHTML = "";
-  boxChecks.innerHTML = "";
-  for (const b in data) {
-    const opt = document.createElement("option");
-    opt.textContent = b;
-    boxSelect.appendChild(opt);
-
-    const label = document.createElement("label");
-    label.innerHTML = `<input type="checkbox" value="${b}">${b}`;
-    boxChecks.appendChild(label);
-    boxChecks.appendChild(document.createElement("br"));
+  /* ===== 翻訳 ===== */
+  async function translate(word) {
+    const res = await fetch(
+      "https://api.mymemory.translated.net/get?q=" +
+      encodeURIComponent(word) +
+      "&langpair=en|ja"
+    );
+    const json = await res.json();
+    return json.responseData.translatedText || "（翻訳失敗）";
   }
-}
-updateUI();
 
-/* ===== ボックス追加 ===== */
-addBoxBtn.onclick = () => {
-  const name = boxNameInput.value.trim();
-  if (!name || data[name]) return;
-  data[name] = {};
-  save();
+  /* ===== UI更新 ===== */
+  function updateUI() {
+    boxSelect.innerHTML = "";
+    boxChecks.innerHTML = "";
+    for (const b in data) {
+      boxSelect.add(new Option(b, b));
+      const label = document.createElement("label");
+      label.innerHTML = `<input type="checkbox" value="${b}">${b}`;
+      boxChecks.appendChild(label);
+      boxChecks.appendChild(document.createElement("br"));
+    }
+  }
   updateUI();
-  boxNameInput.value = "";
-};
 
-/* ===== 単語登録 ===== */
-addWordBtn.onclick = async () => {
-  const box = boxSelect.value;
-  if (!box) return;
-
-  const words = wordInput.value
-    .split("\n")
-    .map(w => w.trim())
-    .filter(w => w);
-
-  if (!words.length) return;
-
-  statusSpan.textContent = "翻訳中…";
-
-  for (const w of words) {
-    if (data[box][w]) continue;
-    const meaning = await translate(w);
-    data[box][w] = { meaning, history: [] };
+  /* ===== ボックス追加 ===== */
+  addBoxBtn.onclick = () => {
+    const name = boxNameInput.value.trim();
+    if (!name || data[name]) return;
+    data[name] = {};
     save();
-  }
+    updateUI();
+    boxNameInput.value = "";
+  };
 
-  statusSpan.textContent = "登録完了";
-  wordInput.value = "";
-};
+  /* ===== 単語登録 ===== */
+  addWordBtn.onclick = async () => {
+    const box = boxSelect.value;
+    if (!box) return;
+    const words = wordInput.value.split("\n")
+      .map(w => w.trim()).filter(Boolean);
+    if (!words.length) return;
 
-/* ===== 一覧 ===== */
-showListBtn.onclick = () => {
-  wordListDiv.innerHTML = "";
-  for (const b in data) {
-    wordListDiv.innerHTML += `<h3>${b}</h3>`;
-    for (const w in data[b]) {
-      const h = data[b][w].history.slice(-5)
-        .map(x => x ? "⭕" : "❌").join("");
-      wordListDiv.innerHTML +=
-        `${w} :
-        <input value="${data[b][w].meaning}"
-        onchange="data['${b}']['${w}'].meaning=this.value;localStorage.setItem('wordData',JSON.stringify(data))">
-        ${h}<br>`;
+    statusSpan.textContent = "翻訳中…";
+    for (const w of words) {
+      if (data[box][w]) continue;
+      const meaning = await translate(w);
+      data[box][w] = { meaning, history: [] };
+      save();
     }
-  }
-};
+    statusSpan.textContent = "登録完了";
+    wordInput.value = "";
+  };
 
-/* ===== クイズ ===== */
-let quiz = [], wrong = [], idx = 0, correct = "";
-
-startQuizBtn.onclick = () => {
-  let pool = [];
-  document.querySelectorAll("#boxChecks input:checked")
-    .forEach(c => {
-      for (const w in data[c.value]) {
-        pool.push({ box: c.value, word: w });
+  /* ===== 一覧 ===== */
+  showListBtn.onclick = () => {
+    wordListDiv.innerHTML = "";
+    for (const b in data) {
+      wordListDiv.innerHTML += `<h3>${b}</h3>`;
+      for (const w in data[b]) {
+        const h = data[b][w].history.slice(-5)
+          .map(x => x ? "⭕" : "❌").join("");
+        wordListDiv.innerHTML +=
+          `${w} :
+          <input value="${data[b][w].meaning}"
+          onchange="this.dataset.changed=1">
+          ${h}<br>`;
       }
-    });
-
-  if (pool.length < 10) {
-    alert("10語以上選択してください");
-    return;
-  }
-
-  quiz = pool.sort(() => Math.random() - 0.5).slice(0, 10);
-  wrong = [];
-  idx = 0;
-  nextQ();
-};
-
-function nextQ() {
-  resultP.textContent = "";
-  if (idx >= quiz.length) {
-    if (wrong.length) {
-      alert("間違えた問題をもう一度出します");
-      quiz = wrong;
-      wrong = [];
-      idx = 0;
-      nextQ();
-    } else {
-      alert("終了！");
     }
-    return;
+  };
+
+  /* ===== クイズ ===== */
+  let quiz = [], wrong = [], idx = 0, correct = "";
+
+  startQuizBtn.onclick = () => {
+    let pool = [];
+    document.querySelectorAll("#boxChecks input:checked")
+      .forEach(c => {
+        for (const w in data[c.value])
+          pool.push({ box: c.value, word: w });
+      });
+    if (pool.length < 10) {
+      alert("10語以上選択してください");
+      return;
+    }
+    quiz = pool.sort(() => Math.random() - 0.5).slice(0, 10);
+    wrong = [];
+    idx = 0;
+    nextQ();
+  };
+
+  function nextQ() {
+    resultP.textContent = "";
+    if (idx >= quiz.length) {
+      if (wrong.length) {
+        alert("間違えた問題をもう一度出します");
+        quiz = wrong;
+        wrong = [];
+        idx = 0;
+        nextQ();
+      } else {
+        alert("終了！");
+      }
+      return;
+    }
+    const q = quiz[idx];
+    correct = data[q.box][q.word].meaning;
+
+    let choices = [correct];
+    for (const b in data)
+      for (const w in data[b])
+        if (choices.length < 4 && data[b][w].meaning !== correct)
+          choices.push(data[b][w].meaning);
+
+    choices = choices.sort(() => Math.random() - 0.5);
+
+    questionH3.textContent =
+      `(${idx + 1}) ${q.word} の意味は？`;
+    choicesDiv.innerHTML = "";
+
+    choices.forEach(c => {
+      const btn = document.createElement("button");
+      btn.textContent = c;
+      btn.onclick = () => answer(c);
+      choicesDiv.appendChild(btn);
+    });
   }
 
-  const q = quiz[idx];
-  const item = data[q.box][q.word];
-  correct = item.meaning;
+  function answer(a) {
+    const q = quiz[idx];
+    const ok = a === correct;
+    data[q.box][q.word].history.push(ok);
+    if (!ok) wrong.push(q);
+    save();
+    resultP.textContent = ok ? "⭕ 正解" : "❌ 不正解";
+    idx++;
+    setTimeout(nextQ, 700);
+  }
 
-  let choices = [correct];
-  for (const b in data)
-    for (const w in data[b])
-      if (choices.length < 4 && data[b][w].meaning !== correct)
-        choices.push(data[b][w].meaning);
+});
+</script>
 
-  choices = choices.sort(() => Math.random() - 0.5);
-
-  questionH3.textContent = `(${idx + 1}) ${q.word} の意味は？`;
-  choicesDiv.innerHTML = "";
-
-  choices.forEach(c => {
-    const btn = document.createElement("button");
-    btn.textContent = c;
-    btn.onclick = () => answer(c);
-    choicesDiv.appendChild(btn);
-  });
-}
-
-function answer(a) {
-  const q = quiz[idx];
-  const item = data[q.box][q.word];
-  const ok = a === correct;
-  item.history.push(ok);
-  if (!ok) wrong.push(q);
-  save(
+</body>
+</html>

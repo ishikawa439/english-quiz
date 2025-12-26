@@ -38,4 +38,187 @@ input, textarea, select { width: 100%; margin: 5px 0; }
 <div id="quiz" class="hidden"></div>
 
 <script>
-/* ===== データ =====*
+/* ===== データ ===== */
+let data = JSON.parse(localStorage.getItem("wordData") || "{}");
+let quizWords = [];
+let quizIndex = 0;
+let wrongWords = [];
+
+/* ===== 保存 ===== */
+function save(){
+  localStorage.setItem("wordData", JSON.stringify(data));
+}
+
+/* ===== 翻訳（API） ===== */
+async function translate(word){
+  try{
+    const res = await fetch("https://libretranslate.de/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        q: word,
+        source: "en",
+        target: "ja",
+        format: "text"
+      })
+    });
+    const json = await res.json();
+    return json.translatedText || "（翻訳失敗：後で修正）";
+  }catch{
+    return "（翻訳失敗：後で修正）";
+  }
+}
+
+/* ===== ボックス管理 ===== */
+function addBox(){
+  const name = newBoxName.value.trim();
+  if(!name || data[name]) return;
+  data[name] = [];
+  newBoxName.value = "";
+  save();
+  render();
+}
+
+function deleteBox(name){
+  if(confirm("削除しますか？")){
+    delete data[name];
+    save();
+    render();
+  }
+}
+
+/* ===== 単語追加（翻訳付き） ===== */
+async function addWords(){
+  const box = boxSelect.value;
+  if(!box) return;
+
+  const words = wordInput.value
+    .split("\n")
+    .map(w=>w.trim())
+    .filter(Boolean);
+
+  wordInput.value = "";
+
+  for(const w of words){
+    const ja = await translate(w);
+    data[box].push({
+      en: w,
+      ja: ja,
+      history: []
+    });
+  }
+
+  save();
+  render();
+}
+
+/* ===== 表示更新 ===== */
+function render(){
+  boxList.innerHTML = "";
+  boxSelect.innerHTML = "";
+  quizBoxSelect.innerHTML = "";
+
+  Object.keys(data).forEach(box=>{
+    boxList.innerHTML += `
+      <div class="box">
+        <b>${box}</b>
+        <button onclick="showWords('${box}')">一覧</button>
+        <button onclick="deleteBox('${box}')">削除</button>
+      </div>`;
+    boxSelect.innerHTML += `<option>${box}</option>`;
+    quizBoxSelect.innerHTML += `
+      <label>
+        <input type="checkbox" value="${box}"> ${box}
+      </label><br>`;
+  });
+}
+
+/* ===== 単語一覧 ===== */
+function showWords(box){
+  wordList.classList.remove("hidden");
+  let html = `<h2>${box}</h2><button onclick="closeList()">閉じる</button>`;
+  data[box].forEach((w,i)=>{
+    html += `
+      <div>
+        ${w.en}：
+        <input value="${w.ja}" onchange="changeJa('${box}',${i},this.value)">
+        ${w.history.map(h=>h?"○":"×").join("")}
+      </div>`;
+  });
+  wordList.innerHTML = html;
+}
+
+function closeList(){
+  wordList.classList.add("hidden");
+}
+
+function changeJa(box,i,val){
+  data[box][i].ja = val;
+  save();
+}
+
+/* ===== クイズ ===== */
+function startQuiz(){
+  quizWords = [];
+  wrongWords = [];
+  document.querySelectorAll("#quizBoxSelect input:checked").forEach(c=>{
+    quizWords.push(...data[c.value]);
+  });
+  if(quizWords.length < 10){
+    alert("10語以上必要です");
+    return;
+  }
+  quizWords = quizWords.sort(()=>Math.random()-0.5).slice(0,10);
+  quizIndex = 0;
+  home.classList.add("hidden");
+  quiz.classList.remove("hidden");
+  showQuiz();
+}
+
+function showQuiz(){
+  const q = quizWords[quizIndex];
+  let choices = [q.ja];
+  while(choices.length < 4){
+    let r = quizWords[Math.floor(Math.random()*quizWords.length)].ja;
+    if(!choices.includes(r)) choices.push(r);
+  }
+  choices.sort(()=>Math.random()-0.5);
+
+  quiz.innerHTML = `
+    <h2>${q.en}</h2>
+    ${choices.map(c=>`<button onclick="answer('${c}')">${c}</button>`).join("")}
+    <button onclick="goHome()">HOMEに戻る</button>
+  `;
+}
+
+function answer(c){
+  const q = quizWords[quizIndex];
+  const ok = c === q.ja;
+  q.history.push(ok);
+  q.history = q.history.slice(-5);
+  if(!ok) wrongWords.push(q);
+  quizIndex++;
+
+  if(quizIndex < quizWords.length){
+    showQuiz();
+  }else if(wrongWords.length){
+    quizWords = wrongWords;
+    wrongWords = [];
+    quizIndex = 0;
+    showQuiz();
+  }else{
+    goHome();
+  }
+  save();
+}
+
+function goHome(){
+  quiz.classList.add("hidden");
+  home.classList.remove("hidden");
+}
+
+render();
+</script>
+
+</body>
+</html>

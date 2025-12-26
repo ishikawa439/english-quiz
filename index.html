@@ -2,77 +2,204 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>英単語クイズ（確認用）</title>
-
-<!-- ★ 検索防止（念のため） -->
-<meta name="robots" content="noindex,nofollow">
-
+<title>英単語クイズ</title>
 <style>
-body {
-  font-family: sans-serif;
-  max-width: 900px;
-  margin: auto;
-}
-section {
-  border: 2px solid #444;
-  padding: 10px;
-  margin-bottom: 20px;
-}
-button {
-  padding: 10px;
-  font-size: 16px;
-}
+body { font-family: sans-serif; margin: 10px; }
+.hidden { display: none; }
+button { padding: 8px; margin: 5px 0; }
+input, textarea { width: 100%; margin: 5px 0; }
+.box { border: 1px solid #999; padding: 8px; margin: 5px 0; }
+.correct { color: green; }
+.wrong { color: red; }
 </style>
 </head>
-
 <body>
 
-<!-- ★ 視覚的確認用 -->
-<div style="
-  background: red;
-  color: white;
-  font-size: 24px;
-  padding: 10px;
-  text-align: center;
-">
-★ これは【確認用】index.html です ★
+<h1>英単語クイズ</h1>
+
+<div id="home">
+
+<h2>① 単語ボックス作成</h2>
+<input id="newBoxName" placeholder="ボックス名">
+<button onclick="addBox()">追加</button>
+
+<div id="boxList"></div>
+
+<h2>② 単語登録（改行区切り）</h2>
+<select id="boxSelect"></select>
+<textarea id="wordInput" rows="6" placeholder="apple&#10;banana"></textarea>
+<button onclick="addWords()">登録</button>
+
+<h2>③ クイズ範囲選択</h2>
+<div id="quizBoxSelect"></div>
+<button onclick="startQuiz()">クイズ開始</button>
+
 </div>
 
-<h1>英単語クイズ（動作確認モード）</h1>
+<!-- 単語一覧 -->
+<div id="wordList" class="hidden"></div>
 
-<section>
-  <button id="testBtn">このボタンを押してください</button>
-</section>
+<!-- クイズ画面 -->
+<div id="quiz" class="hidden"></div>
 
 <script>
-/*
-  ★★★★★★★★★★★★★★★★★★★★★★★★★★★
-  ★ ここからが確認用 JavaScript です
-  ★★★★★★★★★★★★★★★★★★★★★★★★★★★
-*/
+/* ---------- データ ---------- */
+let data = JSON.parse(localStorage.getItem("wordData") || "{}");
+let quizWords = [];
+let quizIndex = 0;
+let wrongWords = [];
 
-// 【確認①】script が実行されているか
-alert("【確認①】JavaScript は読み込まれています");
+/* ---------- 翻訳（簡易） ---------- */
+function translate(word){
+  return word + "（意味）";
+}
 
-// 【確認②】DOM が取得できているか
-document.addEventListener("DOMContentLoaded", () => {
-  alert("【確認②】DOMContentLoaded が発火しました");
+/* ---------- 保存 ---------- */
+function save(){
+  localStorage.setItem("wordData", JSON.stringify(data));
+}
 
-  const btn = document.getElementById("testBtn");
+/* ---------- ボックス管理 ---------- */
+function addBox(){
+  const name = newBoxName.value.trim();
+  if(!name || data[name]) return;
+  data[name] = [];
+  newBoxName.value = "";
+  save();
+  render();
+}
 
-  if (!btn) {
-    alert("【確認③】ボタンが見つかりません（HTML不一致）");
-    return;
+function deleteBox(name){
+  if(confirm("削除しますか？")){
+    delete data[name];
+    save();
+    render();
   }
+}
 
-  // 【確認③】ボタンイベント
-  btn.onclick = () => {
-    alert("【確認④】ボタンは正常にクリックされています");
-  };
-});
+/* ---------- 単語追加 ---------- */
+function addWords(){
+  const box = boxSelect.value;
+  if(!box) return;
+  wordInput.value.split("\n").forEach(w=>{
+    w = w.trim();
+    if(w){
+      data[box].push({
+        en:w,
+        ja:translate(w),
+        history:[]
+      });
+    }
+  });
+  wordInput.value="";
+  save();
+  render();
+}
+
+/* ---------- 表示 ---------- */
+function render(){
+  boxList.innerHTML="";
+  boxSelect.innerHTML="";
+  quizBoxSelect.innerHTML="";
+
+  Object.keys(data).forEach(box=>{
+    // ボックス一覧
+    boxList.innerHTML += `
+      <div class="box">
+        <b>${box}</b>
+        <button onclick="showWords('${box}')">一覧</button>
+        <button onclick="deleteBox('${box}')">削除</button>
+      </div>`;
+    boxSelect.innerHTML += `<option>${box}</option>`;
+    quizBoxSelect.innerHTML += `
+      <label>
+        <input type="checkbox" value="${box}"> ${box}
+      </label><br>`;
+  });
+}
+
+/* ---------- 単語一覧 ---------- */
+function showWords(box){
+  wordList.classList.remove("hidden");
+  let html = `<h2>${box}</h2><button onclick="closeList()">閉じる</button>`;
+  data[box].forEach((w,i)=>{
+    html += `
+    <div>
+      ${w.en} :
+      <input value="${w.ja}" onchange="wChange('${box}',${i},this.value)">
+      ${w.history.map(h=>h?"○":"×").join("")}
+    </div>`;
+  });
+  wordList.innerHTML = html;
+}
+
+function closeList(){
+  wordList.classList.add("hidden");
+}
+
+function wChange(box,i,val){
+  data[box][i].ja = val;
+  save();
+}
+
+/* ---------- クイズ ---------- */
+function startQuiz(){
+  quizWords=[];
+  wrongWords=[];
+  document.querySelectorAll("#quizBoxSelect input:checked").forEach(c=>{
+    quizWords.push(...data[c.value]);
+  });
+  if(quizWords.length<10) return alert("10語以上必要です");
+  quizWords = quizWords.sort(()=>Math.random()-0.5).slice(0,10);
+  quizIndex=0;
+  home.classList.add("hidden");
+  quiz.classList.remove("hidden");
+  showQuiz();
+}
+
+function showQuiz(){
+  const q = quizWords[quizIndex];
+  let choices = [q.ja];
+  while(choices.length<4){
+    let r = quizWords[Math.floor(Math.random()*quizWords.length)].ja;
+    if(!choices.includes(r)) choices.push(r);
+  }
+  choices.sort(()=>Math.random()-0.5);
+
+  quiz.innerHTML = `
+    <h2>${q.en}</h2>
+    ${choices.map(c=>`<button onclick="answer('${c}')">${c}</button><br>`).join("")}
+    <br><button onclick="goHome()">HOME</button>
+  `;
+}
+
+function answer(c){
+  const q = quizWords[quizIndex];
+  const ok = c===q.ja;
+  q.history.push(ok);
+  q.history = q.history.slice(-5);
+  if(!ok) wrongWords.push(q);
+  quizIndex++;
+  if(quizIndex<quizWords.length){
+    showQuiz();
+  }else if(wrongWords.length){
+    quizWords = wrongWords;
+    wrongWords=[];
+    quizIndex=0;
+    showQuiz();
+  }else{
+    goHome();
+  }
+  save();
+}
+
+function goHome(){
+  quiz.classList.add("hidden");
+  home.classList.remove("hidden");
+}
+
+render();
 </script>
 
 </body>
 </html>
-
-

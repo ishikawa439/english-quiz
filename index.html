@@ -1,1 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>英単語クイズ（確認用）</title>
+
+<!-- ★ 検索防止（念のため） -->
+<meta name="robots" content="noindex,nofollow">
+
+<style>
+body {
+  font-family: sans-serif;
+  max-width: 900px;
+  margin: auto;
+}
+section {
+  border: 2px solid #444;
+  padding: 10px;
+  margin-bottom: 20px;
+}
+button {
+  padding: 10px;
+  font-size: 16px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ★ 視覚的確認用 -->
+<div style="
+  background: red;
+  color: white;
+  font-size: 24px;
+  padding: 10px;
+  text-align: center;
+">
+★ これは【確認用】index.html です ★
+</div>
+
+<h1>英単語クイズ（動作確認モード）</h1>
+
+<section>
+  <button id="testBtn">このボタンを押してください</button>
+</section>
+
+<script>
+/*
+  ★★★★★★★★★★★★★★★★★★★★★★★★★★★
+  ★ ここからが確認用 JavaScript です
+  ★★★★★★★★★★★★★★★★★★★★★★★★★★★
+*/
+
+// 【確認①】script が実行されているか
+alert("【確認①】JavaScript は読み込まれています");
+
+// 【確認②】DOM が取得できているか
+document.addEventListener("DOMContentLoaded", () => {
+  alert("【確認②】DOMContentLoaded が発火しました");
+
+  const btn = document.getElementById("testBtn");
+
+  if (!btn) {
+    alert("【確認③】ボタンが見つかりません（HTML不一致）");
+    return;
+  }
+
+  // 【確認③】ボタンイベント
+  btn.onclick = () => {
+    alert("【確認④】ボタンは正常にクリックされています");
+  };
+});
+</script>
+
+</body>
+</html>
+
 

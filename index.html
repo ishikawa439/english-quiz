@@ -2,13 +2,14 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>英単語クイズ（自動翻訳つき）</title>
+<title>英単語クイズ（自動翻訳・一括登録対応）</title>
 <style>
 body { font-family: sans-serif; max-width: 900px; margin: auto; }
 section { border: 1px solid #ccc; padding: 10px; margin-bottom: 20px; }
-input, button, select { margin: 4px; }
+input, textarea, button, select { margin: 4px; }
+textarea { width: 300px; height: 120px; }
 .choice button { display: block; width: 100%; margin: 4px 0; }
-.history span { margin-right: 3px; }
+.history { margin-left: 10px; }
 </style>
 </head>
 <body>
@@ -18,26 +19,28 @@ input, button, select { margin: 4px; }
 <section>
 <h2>① ボックス作成</h2>
 <input id="newBoxName" placeholder="ボックス名">
-<button onclick="addBox()">追加</button>
+<button id="addBoxBtn">追加</button>
 </section>
 
 <section>
-<h2>② 単語登録（英語のみ入力）</h2>
+<h2>② 単語登録（改行で複数OK）</h2>
 <select id="boxSelect"></select><br>
-英単語：<input id="newWord">
-<button onclick="addWord()">登録（自動翻訳）</button>
-<span id="translating"></span>
+<textarea id="newWords" placeholder="apple
+run
+important"></textarea><br>
+<button id="addWordBtn">登録（自動翻訳）</button>
+<span id="status"></span>
 </section>
 
 <section>
 <h2>③ 出題範囲選択</h2>
 <div id="boxChecks"></div>
-<button onclick="startQuiz()">クイズ開始</button>
+<button id="startQuizBtn">クイズ開始</button>
 </section>
 
 <section>
 <h2>④ 単語一覧・意味修正・履歴</h2>
-<button onclick="showWordList()">一覧を表示</button>
+<button id="showListBtn">一覧を表示</button>
 <div id="wordList"></div>
 </section>
 
@@ -49,8 +52,13 @@ input, button, select { margin: 4px; }
 </section>
 
 <script>
-// ===== データ =====
+// ===== 基本データ =====
 let data = JSON.parse(localStorage.getItem("wordData")) || {};
+const boxSelect = document.getElementById("boxSelect");
+const boxChecks = document.getElementById("boxChecks");
+const wordList = document.getElementById("wordList");
+const choicesDiv = document.getElementById("choices");
+const status = document.getElementById("status");
 
 function save() {
   localStorage.setItem("wordData", JSON.stringify(data));
@@ -59,22 +67,13 @@ function save() {
 // ===== 翻訳 =====
 async function translate(word) {
   const res = await fetch(
-    `https://api.mymemory.translated.net/get?q=${word}&langpair=en|ja`
+    `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|ja`
   );
   const json = await res.json();
-  return json.responseData.translatedText;
+  return json.responseData.translatedText || "（翻訳失敗）";
 }
 
-// ===== ボックス =====
-function addBox() {
-  const name = newBoxName.value.trim();
-  if (!name || data[name]) return;
-  data[name] = {};
-  save();
-  updateUI();
-  newBoxName.value = "";
-}
-
+// ===== UI更新 =====
 function updateUI() {
   boxSelect.innerHTML = "";
   boxChecks.innerHTML = "";
@@ -86,10 +85,69 @@ function updateUI() {
 }
 updateUI();
 
-// ===== 単語登録（自動翻訳） =====
-async function addWord() {
-  const box = boxSelect.value;
-  const word = newWord.value.trim();
-  if (!box || !word) return;
+// ===== ボックス追加 =====
+document.getElementById("addBoxBtn").onclick = () => {
+  const name = newBoxName.value.trim();
+  if (!name || data[name]) return;
+  data[name] = {};
+  save();
+  updateUI();
+  newBoxName.value = "";
+};
 
-  translating.textC
+// ===== 単語一括登録 =====
+document.getElementById("addWordBtn").onclick = async () => {
+  const box = boxSelect.value;
+  if (!box) return;
+
+  const words = newWords.value
+    .split("\n")
+    .map(w => w.trim())
+    .filter(w => w);
+
+  if (!words.length) return;
+
+  status.textContent = "翻訳中…";
+
+  for (let w of words) {
+    if (data[box][w]) continue;
+    const meaning = await translate(w);
+    data[box][w] = { meaning, history: [] };
+    save();
+  }
+
+  status.textContent = "登録完了";
+  newWords.value = "";
+  setTimeout(() => status.textContent = "", 1500);
+};
+
+// ===== 一覧表示 =====
+document.getElementById("showListBtn").onclick = () => {
+  wordList.innerHTML = "";
+  for (let b in data) {
+    wordList.innerHTML += `<h3>${b}</h3>`;
+    for (let w in data[b]) {
+      const h = data[b][w].history.slice(-5)
+        .map(x => x ? "⭕" : "❌").join("");
+      wordList.innerHTML += `
+        ${w} :
+        <input value="${data[b][w].meaning}"
+          onchange="data['${b}']['${w}'].meaning=this.value;save();">
+        <span class="history">${h}</span><br>`;
+    }
+  }
+};
+
+// ===== クイズ =====
+let quiz = [], wrong = [], idx = 0, correct = "";
+
+document.getElementById("startQuizBtn").onclick = () => {
+  let pool = [];
+  document.querySelectorAll("#boxChecks input:checked").forEach(c => {
+    for (let w in data[c.value]) {
+      pool.push({ box: c.value, word: w });
+    }
+  });
+
+  if (pool.length < 10) {
+    alert("10語以上
